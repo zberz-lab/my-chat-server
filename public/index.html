@@ -82,25 +82,66 @@
             }
         });
 
-        // 서버로부터 메시지를 받았을 때 화면에 그리기
-        socket.on('chat message', (data) => {
-            const item = document.createElement('li');
-            
-            if (data.username === '시스템') {
-                item.classList.add('system-msg');
-                item.textContent = data.message;
-            } else if (data.username === myName) {
-                item.classList.add('my-msg');
-                item.textContent = `나: ${data.message}`;
-            } else {
-                item.classList.add('other-msg');
-                item.textContent = `${data.username}: ${data.message}`;
-            }
+       // index.html의 <script> 태그 내부 핵심 로직 교체용
 
-            messages.appendChild(item);
-            // 새 메시지가 오면 스크롤을 맨 아래로 이동
-            messages.scrollTop = messages.scrollHeight;
-        });
-    </script>
-</body>
-</html>
+// 기존 'chat message' 이벤트를 아래 내용으로 덮어쓰기 하세요.
+socket.on('chat message', (data) => {
+    const item = document.createElement('li');
+    item.setAttribute('id', data.id); // 메시지 고유 ID 부여
+    
+    // 메시지 텍스트와 숫자를 감싸는 구조
+    const msgText = document.createElement('span');
+    const badge = document.createElement('span');
+    badge.classList.add('badge');
+    badge.style.color = 'red';
+    badge.style.fontSize = '10px';
+    badge.style.marginLeft = '5px';
+    badge.style.marginRight = '5px';
+    
+    if (data.unreadCount > 0) {
+        badge.innerText = data.unreadCount;
+    }
+
+    if (data.username === '시스템') {
+        item.classList.add('system-msg');
+        item.textContent = data.message;
+    } else if (data.username === myName) {
+        item.classList.add('my-msg');
+        msgText.textContent = `나: ${data.message}`;
+        item.appendChild(badge); // 나는 숫자 왼쪽에
+        item.appendChild(msgText);
+    } else {
+        item.classList.add('other-msg');
+        msgText.textContent = `${data.username}: ${data.message}`;
+        item.appendChild(msgText);
+        item.appendChild(badge); // 상대방은 숫자 오른쪽에
+        
+        // 상대방 메시지를 받았으니 내가 읽었다고 서버에 신호 전송
+        if (data.unreadCount > 0) {
+            socket.emit('read message', data.id);
+        }
+    }
+
+    messages.appendChild(item);
+    messages.scrollTop = messages.scrollHeight;
+});
+
+// 실시간으로 숫자 1을 지워주는 이벤트 추가
+socket.on('msg read updated', (data) => {
+    const msgLi = document.getElementById(data.id);
+    if (msgLi) {
+        const badge = msgLi.querySelector('.badge');
+        if (badge && data.unreadCount === 0) {
+            badge.remove(); // 숫자 1 삭제!
+        }
+    }
+});
+
+// 방에 늦게 들어왔을 때 기존 기록을 싹 다시 그려주는 이벤트 추가
+socket.on('update history', (history) => {
+    messages.innerHTML = ''; // 기존 화면 비우기
+    history.forEach(data => {
+        // 위의 새 대화 그리기 로직과 동일하게 반복 호출하여 화면을 복구합니다.
+        // (이해를 돕기 위해 축약함, 실제 구현 시 위 그리기 로직을 함수로 만들면 편리합니다.)
+    });
+});
