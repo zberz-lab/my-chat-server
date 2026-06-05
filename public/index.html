@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카카오톡 스타일 오픈채팅</title>
+    <style>
+        /* 간단한 카카오톡 느낌의 디자인 스타일링 */
+        body { font-family: sans-serif; background-color: #b2c7da; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; }
+        #login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #fef01b; }
+        #chat-container { display: none; flex-direction: column; height: 100vh; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; list-style-type: none; margin: 0; }
+        #messages li { margin-bottom: 15px; padding: 10px; border-radius: 5px; max-width: 70%; word-break: break-all; }
+        .my-msg { background-color: #fef01b; align-self: flex-end; margin-left: auto; }
+        .other-msg { background-color: #ffffff; align-self: flex-start; }
+        .system-msg { background-color: rgba(0,0,0,0.1); color: #fff; align-self: center; text-align: center; max-width: 100% !important; margin: 10px auto; font-size: 12px; }
+        #form { display: flex; padding: 10px; background: #fff; }
+        #input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; outline: none; }
+        #form button { padding: 10px 20px; background: #fef01b; border: none; margin-left: 10px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="login-container">
+        <h2>카카오 오픈채팅 오픈!</h2>
+        <input type="text" id="username" placeholder="닉네임 입력" style="padding:10px; margin:5px; width:200px;"><br>
+        <input type="text" id="room" placeholder="방 이름 입력 (예: 코딩방)" style="padding:10px; margin:5px; width:200px;"><br>
+        <button id="join-btn" style="padding:10px 20px; background:#3a1d1d; color:#fff; border:none; cursor:pointer;">입장하기</button>
+    </div>
+
+    <div id="chat-container">
+        <div style="background:#3a1d1d; color:#fff; padding:15px; text-align:center; font-weight:bold;" id="room-title">방 제목</div>
+        <ul id="messages"></ul>
+        <form id="form" action="">
+            <input id="input" autocomplete="off" placeholder="메시지를 입력하세요..." />
+            <button>전송</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const loginContainer = document.getElementById('login-container');
+        const chatContainer = document.getElementById('chat-container');
+        const joinBtn = document.getElementById('join-btn');
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
+        const roomTitle = document.getElementById('room-title');
+
+        let myName = "";
+
+        // 입장 버튼 클릭 시
+        joinBtn.addEventListener('click', () => {
+            const username = document.getElementById('username').value.trim();
+            const room = document.getElementById('room').value.trim();
+
+            if (!username || !room) {
+                alert('닉네임과 방 이름을 모두 입력해주세요!');
+                return;
+            }
+
+            myName = username;
+            roomTitle.innerText = `${room} 오픈채팅방`;
+
+            // 서버에 입장 알림
+            socket.emit('join room', { room, username });
+
+            // 화면 전환
+            loginContainer.style.display = 'none';
+            chatContainer.style.display = 'flex';
+        });
+
+        // 메시지 전송 버튼 클릭 시
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (input.value.trim()) {
+                // 서버로 메시지 보냄
+                socket.emit('chat message', input.value);
+                input.value = '';
+            }
+        });
+
+        // 서버로부터 메시지를 받았을 때 화면에 그리기
+        socket.on('chat message', (data) => {
+            const item = document.createElement('li');
+            
+            if (data.username === '시스템') {
+                item.classList.add('system-msg');
+                item.textContent = data.message;
+            } else if (data.username === myName) {
+                item.classList.add('my-msg');
+                item.textContent = `나: ${data.message}`;
+            } else {
+                item.classList.add('other-msg');
+                item.textContent = `${data.username}: ${data.message}`;
+            }
+
+            messages.appendChild(item);
+            // 새 메시지가 오면 스크롤을 맨 아래로 이동
+            messages.scrollTop = messages.scrollHeight;
+        });
+    </script>
+</body>
+</html>
